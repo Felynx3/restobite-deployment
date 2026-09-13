@@ -10,7 +10,7 @@ $openspec-propose
 Crea un cambio para publicar la imagen de producción de restobite-backend en el paquete privado GHCR `ghcr.io/felynx3/restobite-backend` mediante GitHub Actions.
 
 El cambio debe crear un workflow versionado en `.github/workflows/publish-container.yml` con estas decisiones cerradas:
-- Se activa en `push` a `main` y en tags `v*`; no realiza despliegues por SSH ni modifica la VPS.
+- Se activa en tags `v*`; no realiza despliegues por SSH ni modifica la VPS.
 - Declara exactamente los permisos mínimos `contents: read` y `packages: write`.
 - Usa `actions/checkout`, `docker/setup-buildx-action`, `docker/login-action` contra `ghcr.io` con `${{ github.actor }}` y `${{ secrets.GITHUB_TOKEN }}`, `docker/metadata-action` y `docker/build-push-action`.
 - Construye contexto `.` con el Dockerfile de producción del repositorio (`docker/node/DockerfileProd`), publica el paquete privado y usa caché `type=gha` para lectura y escritura.
@@ -32,7 +32,7 @@ $openspec-propose
 Crea un cambio para publicar la imagen de producción de restobite-public en el paquete privado GHCR `ghcr.io/felynx3/restobite-public` mediante GitHub Actions.
 
 El cambio debe crear un workflow versionado en `.github/workflows/publish-container.yml` con estas decisiones cerradas:
-- Se activa en `push` a `main` y en tags `v*`; no realiza despliegues por SSH ni modifica la VPS.
+- Se activa en tags `v*`; no realiza despliegues por SSH ni modifica la VPS.
 - Declara exactamente los permisos mínimos `contents: read` y `packages: write`.
 - Usa `actions/checkout`, `docker/setup-buildx-action`, `docker/login-action` contra `ghcr.io` con `${{ github.actor }}` y `${{ secrets.GITHUB_TOKEN }}`, `docker/metadata-action` y `docker/build-push-action`.
 - Construye contexto `.` con el Dockerfile de producción que el repositorio mantenga como contrato de release, publica el paquete privado y usa caché `type=gha` para lectura y escritura.
