@@ -61,7 +61,7 @@ services:
       - -config.file=/etc/promtail/promtail-config.yaml
     volumes:
       - ./promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
-      - nginx_logs:/var/data/nginx/logs:ro
+      - ./caddy/logs:/var/log/caddy:ro
       - promtail_positions:/positions
     depends_on:
       loki:
@@ -95,19 +95,19 @@ services:
       - restobite
     logging: *default-logging
 
-  nginx:
-    image: nginx:1.28-alpine
+  caddy:
+    image: caddy:2.10.2-alpine
     restart: unless-stopped
     env_file:
-      - ./env/nginx.env
+      - ./env/caddy.env
     ports:
       - '80:80'
       - '443:443'
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/templates:/etc/nginx/templates:ro
-      - nginx_logs:/var/data/nginx/logs
-      - ${LETSENCRYPT_DIR:?Set LETSENCRYPT_DIR to the VPS certificate directory}:/certs:ro
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/data:/data
+      - ./caddy/config:/config
+      - ./caddy/logs:/var/log/caddy
     depends_on:
       backend:
         condition: service_started
@@ -129,8 +129,6 @@ volumes:
     name: restobite_grafana_data
   loki_data:
     name: restobite_loki_data
-  nginx_logs:
-    name: restobite_nginx_logs
   promtail_positions:
     name: restobite_promtail_positions
 

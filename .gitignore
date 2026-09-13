@@ -5,3 +5,11 @@ secrets/*
 # Preserve the versioned examples and the directory placeholder.
 !env/*.env.example
 !secrets/.gitkeep
+
+# Caddy persists ACME accounts, issued certificates, runtime configuration, and logs here.
+caddy/data/*
+caddy/config/*
+caddy/logs/*
+!caddy/data/.gitkeep
+!caddy/config/.gitkeep
+!caddy/logs/.gitkeep

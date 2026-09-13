@@ -1,0 +1,65 @@
+{
+	# HTTP sites are declared explicitly below so origin-secret checks run before
+	# an API or public request can be redirected to HTTPS.
+	auto_https disable_redirects
+
+	log public_error {
+		output file /var/log/caddy/restobite_public_error.json
+		format json
+		level ERROR
+		include http.log.error.public_access
+	}
+}
+
+http://{$API_ORIGIN_HOST} {
+	@authorized header X-Origin-Secret {$API_ORIGIN_SECRET}
+	handle @authorized {
+		redir https://{host}{uri} permanent
+	}
+	respond "Forbidden" 403
+}
+
+https://{$API_ORIGIN_HOST} {
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	@authorized header X-Origin-Secret {$API_ORIGIN_SECRET}
+	handle @authorized {
+		reverse_proxy backend:4000 {
+			header_up Host {host}
+		}
+	}
+	respond "Forbidden" 403
+}
+
+http://{$PUBLIC_ORIGIN_HOST} {
+	@authorized header X-Origin-Secret {$PUBLIC_ORIGIN_SECRET}
+	handle @authorized {
+		redir https://{host}{uri} permanent
+	}
+	respond "Forbidden" 403
+}
+
+https://{$PUBLIC_ORIGIN_HOST} {
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	log public_access {
+		output file /var/log/caddy/restobite_public_access.json
+		format json
+	}
+	@authorized header X-Origin-Secret {$PUBLIC_ORIGIN_SECRET}
+	handle @authorized {
+		reverse_proxy public:3000 {
+			header_up Host {host}
+		}
+	}
+	respond "Forbidden" 403
+}
+
+http://{$LOGS_HOST} {
+	redir https://{host}{uri} permanent
+}
+
+https://{$LOGS_HOST} {
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	reverse_proxy grafana:3000 {
+		header_up Host {host}
+	}
+}
