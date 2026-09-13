@@ -1,0 +1,29 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+positions:
+  filename: /positions/positions.yaml
+
+scrape_configs:
+  - job_name: restobite-nginx-public-info
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          env: production
+          level: info
+          source: restobite-nginx
+          __path__: /var/data/nginx/logs/restobite_public.log
+  - job_name: restobite-nginx-public-error
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          env: production
+          level: error
+          source: restobite-nginx
+          __path__: /var/data/nginx/logs/restobite_public_error.log

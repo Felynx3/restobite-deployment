@@ -1,0 +1,7 @@
+# Operator-managed runtime configuration and cloud credentials.
+env/*.env
+secrets/*
+
+# Preserve the versioned examples and the directory placeholder.
+!env/*.env.example
+!secrets/.gitkeep

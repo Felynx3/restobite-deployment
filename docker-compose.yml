@@ -1,0 +1,139 @@
+name: restobite
+
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '3'
+
+services:
+  backend:
+    image: ghcr.io/felynx3/restobite-backend:${BACKEND_IMAGE_TAG:?Set BACKEND_IMAGE_TAG to a published immutable tag}
+    restart: unless-stopped
+    env_file:
+      - ./env/backend.env
+    environment:
+      NODE_ENV: production
+      LOG_LOKI_URL: http://loki:3100
+    secrets:
+      - gcp_service_account
+    depends_on:
+      loki:
+        condition: service_started
+    networks:
+      - restobite
+    logging: *default-logging
+
+  public:
+    image: ghcr.io/felynx3/restobite-public:${PUBLIC_IMAGE_TAG:?Set PUBLIC_IMAGE_TAG to a published immutable tag}
+    restart: unless-stopped
+    env_file:
+      - ./env/public.env
+    environment:
+      NODE_ENV: production
+      RESTOBITE_BACKEND_API_URL: http://backend:4000
+      LOG_LOKI_URL: http://loki:3100
+    depends_on:
+      backend:
+        condition: service_started
+      loki:
+        condition: service_started
+    networks:
+      - restobite
+    logging: *default-logging
+
+  loki:
+    image: grafana/loki:3.7
+    restart: unless-stopped
+    command:
+      - -config.file=/etc/loki/loki-config.yaml
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+    networks:
+      - restobite
+    logging: *default-logging
+
+  promtail:
+    image: grafana/promtail:3.5.9
+    restart: unless-stopped
+    command:
+      - -config.file=/etc/promtail/promtail-config.yaml
+    volumes:
+      - ./promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
+      - nginx_logs:/var/data/nginx/logs:ro
+      - promtail_positions:/positions
+    depends_on:
+      loki:
+        condition: service_started
+    networks:
+      - restobite
+    logging: *default-logging
+
+  grafana:
+    image: grafana/grafana:13.1
+    restart: unless-stopped
+    env_file:
+      - ./env/grafana.env
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_ANALYTICS_ENABLED: 'false'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: 'false'
+      GF_PLUGINS_PREINSTALL_DISABLED: 'true'
+      GF_SERVER_DOMAIN: logs.restobite.com
+      GF_SERVER_ROOT_URL: https://logs.restobite.com
+      GF_SESSION_COOKIE_SECURE: 'true'
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      loki:
+        condition: service_started
+    networks:
+      - restobite
+    logging: *default-logging
+
+  nginx:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    env_file:
+      - ./env/nginx.env
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - nginx_logs:/var/data/nginx/logs
+      - ${LETSENCRYPT_DIR:?Set LETSENCRYPT_DIR to the VPS certificate directory}:/certs:ro
+    depends_on:
+      backend:
+        condition: service_started
+      public:
+        condition: service_started
+      grafana:
+        condition: service_started
+    networks:
+      - restobite
+    logging: *default-logging
+
+networks:
+  restobite:
+    name: restobite
+    driver: bridge
+
+volumes:
+  grafana_data:
+    name: restobite_grafana_data
+  loki_data:
+    name: restobite_loki_data
+  nginx_logs:
+    name: restobite_nginx_logs
+  promtail_positions:
+    name: restobite_promtail_positions
+
+secrets:
+  gcp_service_account:
+    file: ./secrets/gcp-service-account.json
