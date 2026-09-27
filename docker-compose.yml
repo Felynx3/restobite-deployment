@@ -85,7 +85,7 @@ services:
       GF_PLUGINS_PREINSTALL_DISABLED: 'true'
       GF_SERVER_DOMAIN: logs.restobite.com
       GF_SERVER_ROOT_URL: https://logs.restobite.com
-      GF_SESSION_COOKIE_SECURE: 'true'
+      GF_SECURITY_COOKIE_SECURE: 'true'
     volumes:
       - grafana_data:/var/lib/grafana
     depends_on:
