@@ -88,6 +88,7 @@ services:
       GF_SECURITY_COOKIE_SECURE: 'true'
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       loki:
         condition: service_started
