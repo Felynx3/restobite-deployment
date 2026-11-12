@@ -75,3 +75,22 @@ docker compose --env-file env/compose.env up -d backend public
 Caddy renueva automáticamente los certificados mientras conserva su estado en `caddy/data` y `caddy/config`. Revise periódicamente `docker compose --env-file env/compose.env logs caddy` y los registros persistentes `caddy/logs/restobite_public_access.json` y `caddy/logs/restobite_public_error.json`, que Promtail publica en Loki como `source=restobite-caddy` con niveles `info` y `error`, respectivamente. Respalde los directorios persistentes de Caddy con acceso restringido y nunca versione sus contenidos generados.
 
 Revise `WORKFLOW_PROMPTS.md` para crear los workflows de publicación de imágenes en los repositorios de backend y frontend público.
+
+## Continuidad de cartas ante una caída de la VPS
+
+El proxy prepara las cartas públicas para que CloudFront pueda servir una copia vencida durante hasta 24 horas si el origen falla. El encabezado es `public, max-age=0, s-maxage=30, stale-if-error=86400`: la frescura normal sigue siendo de 30 segundos y el navegador debe revalidar.
+
+La regla alcanza GET/HEAD del documento `/-/{tenantCode}`, incluido RSC, con respuesta 200/304 y sin `Set-Cookie`. Reemplaza únicamente el formato de caché de páginas estáticas de Next.js (`s-maxage`, opcionalmente con `stale-while-revalidate`); conserva encabezados privados, `no-store`, `no-cache` y otras directivas. Las respuestas 200/304 que establecen cookies se marcan `private, no-store`, para que no hereden el presupuesto de caché ampliado. Las rutas anidadas como `/invalidate`, los errores y el resto de los servicios quedan fuera de la regla.
+
+Este cambio debe desplegarse junto con el TTL máximo de 86430 segundos definido en `../restobite-cloud/public-page/main.tf`. No aumentar ese máximo antes de corregir los encabezados del origen: el `s-maxage=31536000` anterior prolongaría también la frescura normal de la carta.
+
+Orden de despliegue:
+
+1. Publicar este Caddyfile en la VPS y validar con `docker compose --env-file env/compose.env exec -T caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile`.
+2. Recargar con `docker compose --env-file env/compose.env exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile` y comprobar el encabezado de una carta pública.
+3. Retirar una sola vez las entradas anteriores de CloudFront mediante una invalidación revisada de `/-/*`, y precargar las cartas que deban quedar disponibles. Esto requiere ejecutar las acciones de despliegue autorizadas en AWS; editar los archivos no las ejecuta.
+4. Revisar y aplicar el cambio coordinado de Terraform. Verificar de nuevo el encabezado y las respuestas de caché de una carta.
+
+Para revertir, reducir primero el TTL máximo de CloudFront a 30 segundos y después retirar la regla del proxy. No invalidar durante una caída: se perderían las copias que podrían servir como respaldo.
+
+La duración es un máximo permitido, no una garantía de conservación: CloudFront puede expulsar las copias, y los recursos asociados (JS, CSS e imágenes) también deben estar disponibles. El plazo empieza cuando la copia vence; no se reinicia al comenzar una caída. No se ha añadido un respaldo persistente en S3.

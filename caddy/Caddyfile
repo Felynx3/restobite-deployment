@@ -46,6 +46,29 @@ https://{$PUBLIC_ORIGIN_HOST} {
 	}
 	@authorized header X-Origin-Secret {$PUBLIC_ORIGIN_SECRET}
 	handle @authorized {
+		# Only the public menu document (including Next.js RSC responses), not
+		# nested routes such as /invalidate. CloudFront's matching max_ttl is
+		# configured in restobite-cloud/public-page/main.tf.
+		@menu {
+			method GET HEAD
+			path_regexp menu ^/-/[^/]+/?$
+		}
+		header @menu {
+			# Normalize Next.js's static-page header while preserving private,
+			# no-store, no-cache and other nonstandard cache directives.
+			>Cache-Control "(?i)^s-maxage=[0-9]+(,[[:space:]]*stale-while-revalidate(=[0-9]+)?)?$" "public, max-age=0, s-maxage=30, stale-if-error=86400"
+			match {
+				status 200 304
+				header !Set-Cookie
+			}
+		}
+		# A response that sets a cookie must not inherit the larger cache budget.
+		header @menu Cache-Control "private, no-store" {
+			match {
+				status 200 304
+				header Set-Cookie *
+			}
+		}
 		reverse_proxy public:3000 {
 			header_up Host {host}
 		}
